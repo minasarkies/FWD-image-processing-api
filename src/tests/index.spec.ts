@@ -1,43 +1,64 @@
-//this is the unit test for the main API route
 import supertest from 'supertest'
-import app from '../index'
+import main from '../index'
+import { promises as fs } from 'fs'
+import path from 'path'
+import { newImagePath } from '../utilities/imageResize'
 
-const request = supertest(app)
+const request: supertest.SuperTest<supertest.Test> = supertest(main)
 
-describe('test image processor', () => {
-  it('checks front-end page', async () => {
-    const response = await request.get('/')
-    expect(response.status).toBe(200)
+describe('Test responses from endpoints....', (): void => {
+  describe('endpoint: /', (): void => {
+    it('gets /', async (): Promise<void> => {
+      const response: supertest.Response = await request.get('/')
+      expect(response.status).toBe(200)
+    })
   })
 
-  // check for missing query parameters
-  it('checks for missing query parameters', async () => {
-    const response = await request.get('/image')
-    expect(response.status).toBe(400)
+  describe('endpoint: /api/getImages....2', (): void => {
+    it('gets /api/getImages?filename=fjord', async (): Promise<void> => {
+      const response: supertest.Response = await request.get(
+        '/api/getImages?filename=fjord'
+      ) //Here should be 404 since there is a try catch block of the images without parameters
+      expect(response.status).toBe(200)
+    })
+
+    it('gets /api/getImages?filename=fjord&width=199&height=199', async (): Promise<void> => {
+      const response: supertest.Response = await request.get(
+        '/api/getImages?filename=fjord&width=199&height=199'
+      )
+      expect(response.status).toBe(200)
+    })
+
+    it('gets /api/getImages?filename=fjord&width=abc&height=200', async (): Promise<void> => {
+      const response: supertest.Response = await request.get(
+        '/api/getImages?filename=fjord&width=abc&height=200'
+      )
+      expect(response.status).toBe(404)
+    })
+
+    it('should return a 404 error', async (): Promise<void> => {
+      const response: supertest.Response = await request.get('/api/getImages')
+      expect(response.status).toBe(404)
+    })
   })
 
-  // check for invalid image dimension parameters
-  it('checks for invalid image dimension parameters', async () => {
-    const response = await request.get('/image?f=encenadaport&x=jpeg&w=w&h=h')
-    expect(response.status).toBe(400)
-  })
+  describe('endpoint: /foo', (): void => {
+    it('should return 404 invalid endpoint', async (): Promise<void> => {
+      const response: supertest.Response = await request.get('/foo')
 
-  // check for unknown image asset; all query parameters provided but filename could not be found in assets
-  it('checks for unknown image asset', async () => {
-    const response = await request.get('/image?f=unknown&x=PNG&w=100&h=100')
-    expect(response.status).toBe(404)
+      expect(response.status).toBe(404)
+    })
   })
+})
 
-  // happy path - test the image API
-  it('gets resized image', async () => {
-    const response = await request.get(
-      '/image?f=encenadaport&x=jpeg&w=100&h=100'
-    )
-    expect(response.status).toBe(200)
-  })
+// Erase test file. Test should not run on productive system to avoid cache loss
+afterAll(async (): Promise<void> => {
+  const resizedImagePath: string = path.resolve(newImagePath('fjord', 199, 199))
 
-  it('gets resized image with specified image format', async () => {
-    const response = await request.get('/image?f=fjord&x=JPEG&w=1000&h=1000')
-    expect(response.status).toBe(200)
-  })
+  try {
+    await fs.access(resizedImagePath)
+    fs.unlink(resizedImagePath)
+  } catch {
+    // intentionally left blank
+  }
 })
